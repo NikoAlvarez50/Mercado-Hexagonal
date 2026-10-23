@@ -15,6 +15,7 @@ PY = sys.executable
 CHECKS = [
     ("Aislamiento (import-linter)",
      [PY, "-c", "from importlinter.cli import lint_imports_command; lint_imports_command()"]),
+    ("Código inseguro (Bandit)", [PY, "-m", "bandit", "-r", "app", "run.py"]),
     ("Código sin usar (ruff)", [PY, "-m", "ruff", "check", "."]),
     ("Código muerto (vulture)", [PY, "-m", "vulture"]),
     ("Duplicación (pylint R0801)",

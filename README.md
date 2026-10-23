@@ -31,6 +31,7 @@ python scripts/check.py        # corre todo y muestra un resumen
 | Chequeo | Herramienta | Qué garantiza |
 |---|---|---|
 | Aislamiento | import-linter | `infrastructure → application → domain` (nunca al revés); dominio y aplicación sin Flask; los 5 servicios no se importan entre sí; adaptadores de entrada y salida no se conocen; la entrada usa puertos, no servicios concretos |
+| Código inseguro | Bandit | patrones comunes de riesgo de seguridad en `app/` y `run.py` |
 | Código sin usar | ruff (`F`, `ARG`, `ERA`) | imports, variables y argumentos sin usar; código comentado |
 | Código muerto | vulture | funciones, clases y atributos que nadie llama |
 | Duplicación | pylint (`R0801`) | bloques repetidos entre archivos |
