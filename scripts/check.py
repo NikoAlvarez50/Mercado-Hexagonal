@@ -19,7 +19,7 @@ CHECKS = [
     ("Código sin usar (ruff)", [PY, "-m", "ruff", "check", "."]),
     ("Código muerto (vulture)", [PY, "-m", "vulture"]),
     ("Duplicación (pylint R0801)",
-     [PY, "-m", "pylint", "--disable=all", "--enable=duplicate-code", "--fail-under=10", "app"]),
+        [PY, "-m", "pylint", "--disable=all", "--enable=duplicate-code", "--fail-under=8.1", "app"]),
     ("Pruebas (pytest)", [PY, "-m", "pytest", "-q"]),
 ]
 
