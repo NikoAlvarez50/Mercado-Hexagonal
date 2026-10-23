@@ -1,0 +1,6 @@
+-r requirements.txt
+ruff>=0.6
+pylint>=3.2
+vulture>=2.11
+import-linter>=2.0
+tomli>=2.0; python_version < "3.11"

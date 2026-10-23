@@ -1,0 +1,320 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mercado hexagonal</title>
+<style>
+  :root {
+    --bg: #f6f7f9; --card: #ffffff; --text: #1d2330; --muted: #6b7385; --line: #e3e6ec;
+    --accent: #2f6fed; --accent-text: #ffffff; --ok: #1a8f5a; --err: #c9372c;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #12151c; --card: #1b2029; --text: #e8ebf2; --muted: #98a1b3; --line: #2b3240;
+      --accent: #6b9bff; --accent-text: #0e1117; --ok: #4cc38a; --err: #ff7b72;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+         background: var(--bg); color: var(--text); }
+  header { max-width: 960px; margin: 0 auto; padding: 22px 16px 8px; display: flex;
+           align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+  header h1 { margin: 0; font-size: 22px; }
+  header .links a { color: var(--accent); text-decoration: none; font-weight: 600; margin-left: 14px; }
+  nav { max-width: 960px; margin: 0 auto; padding: 8px 16px; display: flex; gap: 6px; flex-wrap: wrap; }
+  nav button { border: 1px solid var(--line); background: var(--card); color: var(--text);
+               padding: 8px 14px; border-radius: 999px; cursor: pointer; font: inherit; }
+  nav button.active { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
+  main { max-width: 960px; margin: 0 auto; padding: 8px 16px 48px; }
+  .panel { display: none; background: var(--card); border: 1px solid var(--line);
+           border-radius: 12px; padding: 20px; }
+  .panel.active { display: block; }
+  .panel h2 { margin: 0 0 4px; font-size: 18px; }
+  .panel p.hint { margin: 0 0 16px; color: var(--muted); }
+  form, .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: end; margin-bottom: 18px; }
+  label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--muted); flex: 1 1 160px; }
+  input, select { font: inherit; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--line);
+                  background: var(--bg); color: var(--text); min-width: 0; }
+  button.primary, button.secondary { font: inherit; padding: 9px 16px; border-radius: 8px; cursor: pointer; }
+  button.primary { background: var(--accent); color: var(--accent-text); border: 1px solid var(--accent); font-weight: 600; }
+  button.secondary { background: transparent; color: var(--text); border: 1px solid var(--line); }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th, td { text-align: left; padding: 9px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { color: var(--muted); font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: .04em; }
+  td.empty { color: var(--muted); text-align: center; padding: 22px; }
+  .cart { margin: 0 0 14px; padding: 10px 14px; border: 1px dashed var(--line); border-radius: 8px; color: var(--muted); }
+  .cart ul { margin: 6px 0 0; padding-left: 18px; color: var(--text); }
+  .table-wrap { overflow-x: auto; }
+  #toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%) translateY(20px);
+           padding: 10px 18px; border-radius: 10px; color: #fff; opacity: 0; pointer-events: none;
+           transition: all .2s; max-width: 90vw; }
+  #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  #toast.ok { background: var(--ok); }
+  #toast.err { background: var(--err); }
+  @media (prefers-color-scheme: dark) { #toast { color: #0e1117; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>Mercado hexagonal</h1>
+  <div class="links">
+    <a href="{{ url_for('web.docs') }}">Swagger (/docs)</a>
+    <a href="{{ url_for('web.openapi') }}">openapi.json</a>
+  </div>
+</header>
+
+<nav id="tabs">
+  <button data-tab="users" class="active">Usuarios</button>
+  <button data-tab="products">Productos</button>
+  <button data-tab="inventory">Inventario</button>
+  <button data-tab="orders">Pedidos</button>
+  <button data-tab="notifications">Notificaciones</button>
+</nav>
+
+<main>
+  <section class="panel active" id="tab-users">
+    <h2>Usuarios</h2>
+    <p class="hint">Registra clientes. El email debe ser único.</p>
+    <form id="f-user">
+      <label>Nombre <input name="name" required placeholder="Ana Pérez"></label>
+      <label>Email <input name="email" type="email" required placeholder="ana@mail.com"></label>
+      <button class="primary">Crear usuario</button>
+    </form>
+    <div class="table-wrap"><table><thead><tr><th>ID</th><th>Nombre</th><th>Email</th></tr></thead>
+      <tbody id="t-users"></tbody></table></div>
+  </section>
+
+  <section class="panel" id="tab-products">
+    <h2>Productos</h2>
+    <p class="hint">Catálogo de productos con su precio.</p>
+    <form id="f-product">
+      <label>Nombre <input name="name" required placeholder="Café"></label>
+      <label>Precio <input name="price" type="number" step="0.01" min="0.01" required placeholder="12.50"></label>
+      <button class="primary">Crear producto</button>
+    </form>
+    <div class="table-wrap"><table><thead><tr><th>ID</th><th>Nombre</th><th>Precio</th></tr></thead>
+      <tbody id="t-products"></tbody></table></div>
+  </section>
+
+  <section class="panel" id="tab-inventory">
+    <h2>Inventario</h2>
+    <p class="hint">Define las existencias de cada producto. Los pedidos las descuentan.</p>
+    <form id="f-stock">
+      <label>Producto <select name="product_id" id="s-stock-product" required></select></label>
+      <label>Cantidad <input name="quantity" type="number" min="0" step="1" required placeholder="10"></label>
+      <button class="primary">Guardar stock</button>
+    </form>
+    <div class="table-wrap"><table><thead><tr><th>Producto</th><th>Stock</th></tr></thead>
+      <tbody id="t-stock"></tbody></table></div>
+  </section>
+
+  <section class="panel" id="tab-orders">
+    <h2>Pedidos</h2>
+    <p class="hint">Elige el usuario, agrega ítems al carrito y crea el pedido.</p>
+    <div class="row">
+      <label>Producto <select id="s-order-product"></select></label>
+      <label style="flex-basis:100px">Cantidad <input id="i-order-qty" type="number" min="1" step="1" value="1"></label>
+      <button type="button" class="secondary" id="b-add-item">Agregar ítem</button>
+    </div>
+    <div class="cart" id="cart"></div>
+    <form id="f-order">
+      <label>Usuario <select name="user_id" id="s-order-user" required></select></label>
+      <button class="primary">Crear pedido</button>
+      <button type="button" class="secondary" id="b-clear-cart">Vaciar carrito</button>
+    </form>
+    <div class="table-wrap"><table><thead><tr><th>ID</th><th>Usuario</th><th>Ítems</th><th>Total</th><th>Estado</th></tr></thead>
+      <tbody id="t-orders"></tbody></table></div>
+  </section>
+
+  <section class="panel" id="tab-notifications">
+    <h2>Notificaciones</h2>
+    <p class="hint">Cada pedido genera una notificación. También puedes enviar una manualmente.</p>
+    <div class="row">
+      <label>Usuario <select id="n-user"></select></label>
+    </div>
+    <form id="f-notif">
+      <label>Mensaje <input name="message" required placeholder="Hola, tu pedido va en camino"></label>
+      <button class="primary">Enviar</button>
+    </form>
+    <div class="table-wrap"><table><thead><tr><th>ID</th><th>Mensaje</th></tr></thead>
+      <tbody id="t-notifs"></tbody></table></div>
+  </section>
+</main>
+
+<div id="toast"></div>
+
+<script>
+const $ = (s) => document.querySelector(s);
+const state = { users: [], products: [], stock: {}, orders: [], cart: [] };
+const money = (n) => "$" + Number(n).toFixed(2);
+
+function toast(msg, ok = true) {
+  const t = $("#toast");
+  t.textContent = msg;
+  t.className = "show " + (ok ? "ok" : "err");
+  clearTimeout(toast._t);
+  toast._t = setTimeout(() => { t.className = ""; }, 3500);
+}
+
+async function api(method, url, body) {
+  const res = await fetch(url, {
+    method,
+    headers: { "Content-Type": "application/json" },
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
+  let data = {};
+  try { data = await res.json(); } catch (_) {}
+  if (!res.ok) throw new Error(data.message || res.statusText);
+  return data;
+}
+
+function fill(tbody, rows, emptyText) {
+  tbody.replaceChildren();
+  if (!rows.length) {
+    const tr = document.createElement("tr");
+    const td = document.createElement("td");
+    td.colSpan = 10; td.className = "empty"; td.textContent = emptyText;
+    tr.append(td); tbody.append(tr);
+    return;
+  }
+  for (const row of rows) {
+    const tr = document.createElement("tr");
+    for (const cell of row) {
+      const td = document.createElement("td");
+      td.textContent = cell;
+      tr.append(td);
+    }
+    tbody.append(tr);
+  }
+}
+
+function fillSelect(select, items, label, placeholder) {
+  const prev = select.value;
+  select.replaceChildren();
+  if (!items.length) {
+    const o = document.createElement("option");
+    o.value = ""; o.textContent = placeholder;
+    select.append(o);
+    return;
+  }
+  for (const it of items) {
+    const o = document.createElement("option");
+    o.value = it.id; o.textContent = label(it);
+    select.append(o);
+  }
+  if (items.some((i) => i.id === prev)) select.value = prev;
+}
+
+const userName = (id) => (state.users.find((u) => u.id === id) || {}).name || id;
+const productName = (id) => (state.products.find((p) => p.id === id) || {}).name || id;
+
+function renderCart() {
+  const box = $("#cart");
+  box.replaceChildren();
+  if (!state.cart.length) { box.textContent = "El carrito está vacío."; return; }
+  box.append(document.createTextNode("Ítems del pedido:"));
+  const ul = document.createElement("ul");
+  for (const it of state.cart) {
+    const li = document.createElement("li");
+    li.textContent = productName(it.product_id) + " × " + it.quantity;
+    ul.append(li);
+  }
+  box.append(ul);
+}
+
+async function loadNotifs() {
+  const id = $("#n-user").value;
+  if (!id) { fill($("#t-notifs"), [], "Crea un usuario primero"); return; }
+  const list = await api("GET", "/notifications/" + id);
+  fill($("#t-notifs"), list.map((n) => [n.id, n.message]), "Sin notificaciones");
+}
+
+function render() {
+  fill($("#t-users"), state.users.map((u) => [u.id, u.name, u.email]), "Aún no hay usuarios");
+  fill($("#t-products"), state.products.map((p) => [p.id, p.name, money(p.price)]), "Aún no hay productos");
+  fill($("#t-stock"), state.products.map((p) => [p.name, state.stock[p.id] ?? 0]), "Aún no hay productos");
+  fill($("#t-orders"), state.orders.map((o) => [
+    o.id, userName(o.user_id),
+    o.items.map((i) => productName(i.product_id) + " × " + i.quantity).join(", "),
+    money(o.total), o.status,
+  ]), "Aún no hay pedidos");
+
+  const prodLabel = (p) => p.name + " — " + money(p.price);
+  fillSelect($("#s-stock-product"), state.products, prodLabel, "Crea un producto primero");
+  fillSelect($("#s-order-product"), state.products, prodLabel, "Crea un producto primero");
+  const userLabel = (u) => u.name + " (" + u.email + ")";
+  fillSelect($("#s-order-user"), state.users, userLabel, "Crea un usuario primero");
+  fillSelect($("#n-user"), state.users, userLabel, "Crea un usuario primero");
+  renderCart();
+}
+
+async function load() {
+  const [users, products, orders] = await Promise.all([
+    api("GET", "/users"), api("GET", "/products"), api("GET", "/orders"),
+  ]);
+  state.users = users; state.products = products; state.orders = orders;
+  const stocks = await Promise.all(products.map((p) => api("GET", "/inventory/" + p.id)));
+  state.stock = Object.fromEntries(stocks.map((s) => [s.product_id, s.quantity]));
+  render();
+  await loadNotifs();
+}
+
+function onSubmit(selector, handler, okMsg) {
+  $(selector).addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const form = e.target;
+    try {
+      await handler(new FormData(form));
+      form.reset();
+      await load();
+      toast(okMsg);
+    } catch (err) {
+      toast(err.message, false);
+    }
+  });
+}
+
+onSubmit("#f-user", (f) => api("POST", "/users", { name: f.get("name"), email: f.get("email") }), "Usuario creado");
+onSubmit("#f-product", (f) => api("POST", "/products", { name: f.get("name"), price: Number(f.get("price")) }), "Producto creado");
+onSubmit("#f-stock", (f) => {
+  if (!f.get("product_id")) throw new Error("Primero crea un producto");
+  return api("PUT", "/inventory/" + f.get("product_id"), { quantity: parseInt(f.get("quantity"), 10) });
+}, "Stock actualizado");
+onSubmit("#f-order", async (f) => {
+  if (!f.get("user_id")) throw new Error("Primero crea un usuario");
+  if (!state.cart.length) throw new Error("Agrega al menos un ítem al carrito");
+  await api("POST", "/orders", { user_id: f.get("user_id"), items: state.cart });
+  state.cart = [];
+}, "Pedido creado");
+onSubmit("#f-notif", (f) => {
+  const id = $("#n-user").value;
+  if (!id) throw new Error("Primero crea un usuario");
+  return api("POST", "/notifications/" + id, { message: f.get("message") });
+}, "Notificación enviada");
+
+$("#b-add-item").addEventListener("click", () => {
+  const product_id = $("#s-order-product").value;
+  const quantity = parseInt($("#i-order-qty").value, 10);
+  if (!product_id) return toast("Primero crea un producto", false);
+  if (!(quantity > 0)) return toast("La cantidad debe ser mayor que 0", false);
+  const existing = state.cart.find((i) => i.product_id === product_id);
+  if (existing) existing.quantity += quantity; else state.cart.push({ product_id, quantity });
+  renderCart();
+});
+$("#b-clear-cart").addEventListener("click", () => { state.cart = []; renderCart(); });
+$("#n-user").addEventListener("change", () => loadNotifs().catch((e) => toast(e.message, false)));
+
+function showTab(name) {
+  document.querySelectorAll("#tabs button").forEach((b) => b.classList.toggle("active", b.dataset.tab === name));
+  document.querySelectorAll(".panel").forEach((p) => p.classList.toggle("active", p.id === "tab-" + name));
+  history.replaceState(null, "", "#" + name);
+}
+document.querySelectorAll("#tabs button").forEach((b) => b.addEventListener("click", () => showTab(b.dataset.tab)));
+const initial = location.hash.slice(1);
+if (document.getElementById("tab-" + initial)) showTab(initial);
+
+load().catch((e) => toast("No se pudo cargar: " + e.message, false));
+</script>
+</body>
+</html>

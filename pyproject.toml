@@ -1,0 +1,97 @@
+[project]
+name = "mercado-hexagonal"
+version = "1.0.0"
+requires-python = ">=3.9"
+
+# ---------------------------------------------------------------------------
+# 1) AISLAMIENTO: reglas de la arquitectura hexagonal (import-linter)
+#    Ejecutar con:  lint-imports
+# ---------------------------------------------------------------------------
+[tool.importlinter]
+root_package = "app"
+include_external_packages = true
+
+[[tool.importlinter.contracts]]
+name = "Capas: infrastructure -> application -> domain (nunca al revés)"
+type = "layers"
+layers = [
+    "app.infrastructure",
+    "app.application",
+    "app.domain",
+]
+
+[[tool.importlinter.contracts]]
+name = "Dominio y aplicación no conocen frameworks web"
+type = "forbidden"
+source_modules = ["app.domain", "app.application"]
+forbidden_modules = ["flask", "werkzeug", "jinja2"]
+
+[[tool.importlinter.contracts]]
+name = "Los servicios no se importan entre sí (solo hablan por puertos)"
+type = "independence"
+modules = [
+    "app.application.services.user_service",
+    "app.application.services.product_service",
+    "app.application.services.inventory_service",
+    "app.application.services.order_service",
+    "app.application.services.notification_service",
+]
+
+[[tool.importlinter.contracts]]
+name = "Adaptadores de entrada y de salida no se conocen entre sí"
+type = "independence"
+modules = [
+    "app.infrastructure.adapters.inbound",
+    "app.infrastructure.adapters.outbound",
+]
+
+[[tool.importlinter.contracts]]
+name = "Adaptadores de entrada usan puertos, no los servicios concretos"
+type = "forbidden"
+source_modules = ["app.infrastructure.adapters.inbound"]
+forbidden_modules = ["app.application.services"]
+
+[[tool.importlinter.contracts]]
+name = "Adaptadores de salida no dependen de los servicios"
+type = "forbidden"
+source_modules = ["app.infrastructure.adapters.outbound"]
+forbidden_modules = ["app.application.services", "flask"]
+
+# ---------------------------------------------------------------------------
+# 2) CÓDIGO SIN USAR (ruff + vulture)
+#    Ejecutar con:  ruff check .   y   vulture
+# ---------------------------------------------------------------------------
+[tool.ruff]
+target-version = "py39"
+line-length = 100
+extend-exclude = ["tests/__pycache__"]
+
+[tool.ruff.lint]
+select = [
+    "F",    # pyflakes: imports y variables sin usar, nombres indefinidos
+    "ARG",  # argumentos sin usar
+    "ERA",  # código comentado
+    "PLW",  # pylint warnings (p. ej. variables reasignadas sin usar)
+    "RET",  # returns innecesarios
+    "SIM",  # simplificaciones (ramas redundantes)
+]
+
+[tool.vulture]
+paths = ["app", "run.py"]
+min_confidence = 60
+ignore_decorators = ["@bp.*", "@app.*", "@pytest.fixture"]
+ignore_names = ["TESTING"]
+
+# ---------------------------------------------------------------------------
+# 3) DUPLICACIÓN (pylint, solo la regla R0801)
+#    Ejecutar con:  pylint --disable=all --enable=duplicate-code app
+# ---------------------------------------------------------------------------
+[tool.pylint.main]
+jobs = 1
+
+[tool.pylint.similarities]
+min-similarity-lines = 4
+ignore-comments = true
+ignore-docstrings = true
+ignore-imports = true
+ignore-signatures = true
