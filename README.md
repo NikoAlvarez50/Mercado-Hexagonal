@@ -1,4 +1,4 @@
-# Mercado hexagonal (Flask)
+# Mercado-Hexagonal (Flask)
 
 Aplicación en Python + Flask con **arquitectura hexagonal** (puertos y adaptadores) y **5 servicios**:
 
